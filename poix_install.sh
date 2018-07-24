@@ -2,7 +2,7 @@
 
 TMP_FOLDER=$(mktemp -d)
 CONFIG_FILE='poix.conf'
-CONFIGFOLDER='/root/.PoixCore'
+CONFIGFOLDER='/root/.poixcore'
 COIN_DAEMON='poixd'
 COIN_CLI='poix-cli'
 COIN_PATH='/usr/local/bin/'
