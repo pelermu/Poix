@@ -7,7 +7,7 @@ COIN_DAEMON='poixd'
 COIN_CLI='poix-cli'
 COIN_PATH='/usr/local/bin/'
 COIN_REPO='https://github.com/poixdev/poix.git'
-COIN_TGZ='https://github.com/Realbityoda/Poix/releases/download/v1.0.0.0/poix.zip'
+COIN_TGZ='https://github.com/poixdev/poix/releases/download/v2/poix-v2.0.0-linux.tar'
 COIN_ZIP=$(echo $COIN_TGZ | awk -F'/' '{print $NF}')
 COIN_NAME='Poix'
 COIN_PORT=7777
@@ -52,7 +52,7 @@ function download_node() {
   cd $TMP_FOLDER >/dev/null 2>&1
   wget -q $COIN_TGZ
   compile_error
-  unzip $COIN_ZIP >/dev/null 2>&1
+  tar xvzf $COIN_ZIP >/dev/null 2>&1
   chmod +x $COIN_DAEMON $COIN_CLI
   cp $COIN_DAEMON $COIN_CLI $COIN_PATH
   cd ~ >/dev/null 2>&1
