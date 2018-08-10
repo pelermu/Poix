@@ -1,8 +1,8 @@
 #!/bin/bash
 
 TMP_FOLDER=$(mktemp -d)
-CONFIG_FILE='poix.conf'
-CONFIGFOLDER='/root/.poixcore'
+CONFIG_FILE='wealthsilo.conf'
+CONFIGFOLDER='/root/.wealthsilo'
 COIN_DAEMON='wealthsilod'
 COIN_CLI='wealthsilo-cli'
 COIN_PATH='/usr/local/bin/'
