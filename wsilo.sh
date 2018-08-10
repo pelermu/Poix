@@ -3,15 +3,15 @@
 TMP_FOLDER=$(mktemp -d)
 CONFIG_FILE='poix.conf'
 CONFIGFOLDER='/root/.poixcore'
-COIN_DAEMON='poixd'
-COIN_CLI='poix-cli'
+COIN_DAEMON='wealthsilod'
+COIN_CLI='wealthsilo-cli'
 COIN_PATH='/usr/local/bin/'
-COIN_REPO='https://github.com/poixdev/poix.git'
-COIN_TGZ='https://github.com/Realbityoda/Poix/releases/download/v2.1/poix2.1.zip'
+COIN_REPO='https://github.com/wealthsilo/WealthSilo.git'
+COIN_TGZ='https://github.com/wealthsilo/WealthSilo/files/2273906/Linux-daemon.zip'
 COIN_ZIP=$(echo $COIN_TGZ | awk -F'/' '{print $NF}')
-COIN_NAME='Poix'
-COIN_PORT=7777
-RPC_PORT=7778
+COIN_NAME='POIX'
+COIN_PORT=5595
+RPC_PORT=45596
 
 NODEIP=$(curl -s4 icanhazip.com)
 
@@ -27,39 +27,42 @@ MAG='\e[1;35m'
 purgeOldInstallation() {
     echo -e "${GREEN}Searching and removing old $COIN_NAME files and configurations${NC}"
     #kill wallet daemon
-    systemctl stop $COIN_NAME.service > /dev/null 2>&1
-    sudo killall $COIN_DAEMON > /dev/null 2>&1
-	# Save Key 
-	OLDKEY=$(awk -F'=' '/masternodeprivkey/ {print $2}' $CONFIGFOLDER/$CONFIG_FILE 2> /dev/null)
-	if [ "$?" -eq "0" ]; then
-    		echo -e "${CYAN}Saving Old Installation Genkey${NC}"
-		echo -e $OLDKEY
-	fi
+    sudo killall poixd > /dev/null 2>&1
     #remove old ufw port allow
-    sudo ufw delete allow $COIN_PORT/tcp > /dev/null 2>&1
+    sudo ufw delete allow 5595/tcp > /dev/null 2>&1
     #remove old files
-    rm rm -- "$0" > /dev/null 2>&1
-    sudo rm -rf $CONFIGFOLDER > /dev/null 2>&1
-    sudo rm -rf /usr/local/bin/$COIN_CLI /usr/local/bin/$COIN_DAEMON> /dev/null 2>&1
-    sudo rm -rf /usr/bin/$COIN_CLI /usr/bin/$COIN_DAEMON > /dev/null 2>&1
-    sudo rm -rf /tmp/*
+    if [ -d "~/.poixcore" ]; then
+        sudo rm -rf ~/.poixcore > /dev/null 2>&1
+    fi
+    #remove binaries and poix utilities
+    cd /usr/local/bin && sudo rm poix-cli poix-tx poixd > /dev/null 2>&1 && cd
     echo -e "${GREEN}* Done${NONE}";
 }
 
+function install_sentinel() {
+  echo -e "${GREEN}Installing sentinel.${NC}"
+  apt-get -y install python-virtualenv virtualenv >/dev/null 2>&1
+  git clone $SENTINEL_REPO $CONFIGFOLDER/sentinel >/dev/null 2>&1
+  cd $CONFIGFOLDER/sentinel
+  virtualenv ./venv >/dev/null 2>&1
+  ./venv/bin/pip install -r requirements.txt >/dev/null 2>&1
+  echo  "* * * * * cd $CONFIGFOLDER/sentinel && ./venv/bin/python bin/sentinel.py >> $CONFIGFOLDER/sentinel.log 2>&1" > $CONFIGFOLDER/$COIN_NAME.cron
+  crontab $CONFIGFOLDER/$COIN_NAME.cron
+  rm $CONFIGFOLDER/$COIN_NAME.cron >/dev/null 2>&1
+}
 
 function download_node() {
   echo -e "${GREEN}Downloading and Installing VPS $COIN_NAME Daemon${NC}"
   cd $TMP_FOLDER >/dev/null 2>&1
   wget -q $COIN_TGZ
   compile_error
-  unzip $COIN_ZIP >/dev/null 2>&1
+  tar xvf $COIN_ZIP >/dev/null 2>&1
   chmod +x $COIN_DAEMON $COIN_CLI
   cp $COIN_DAEMON $COIN_CLI $COIN_PATH
   cd ~ >/dev/null 2>&1
   rm -rf $TMP_FOLDER >/dev/null 2>&1
   clear
 }
-
 function configure_systemd() {
   cat << EOF > /etc/systemd/system/$COIN_NAME.service
 [Unit]
@@ -149,13 +152,6 @@ maxconnections=256
 masternode=1
 externalip=$NODEIP:$COIN_PORT
 masternodeprivkey=$COINKEY
-
-#Addnodes
-
-addnode=80.240.29.44
-addnode=217.69.13.167
-addnode=45.77.52.114
-addnode=149.28.202.119
 
 EOF
 }
@@ -254,22 +250,28 @@ clear
 function important_information() {
  echo
  echo -e "${BLUE}================================================================================================================================${NC}"
- echo -e "${PURPLE}Windows Wallet Guide. https://github.com/Realbityoda/Poix/master/README.md${NC}"
+ echo -e "${PURPLE}Windows Wallet Guide. https://github.com/Realbityoda/poix/blob/master/README.md${NC}"
  echo -e "${BLUE}================================================================================================================================${NC}"
- echo -e "${GREEN}$COIN_NAME Masternode is up and running listening on port${NC}${PURPLE}$COIN_PORT${NC}."
- echo -e "${GREEN}Configuration file is:${NC}${RED}$CONFIGFOLDER/$CONFIG_FILE${NC}"
- echo -e "${GREEN}Start:${NC}${RED}systemctl start $COIN_NAME.service${NC}"
- echo -e "${GREEN}Stop:${NC}${RED}systemctl stop $COIN_NAME.service${NC}"
- echo -e "${GREEN}VPS_IP:${NC}${GREEN}$NODEIP:$COIN_PORT${NC}"
- echo -e "${GREEN}MASTERNODE GENKEY is:${NC}${PURPLE}$COINKEY${NC}"
+ echo -e "$COIN_NAME Masternode is up and running listening on port ${GREEN}$COIN_PORT${NC}."
+ echo -e "Configuration file is: ${RED}$CONFIGFOLDER/$CONFIG_FILE${NC}"
+ echo -e "Start: ${RED}systemctl start $COIN_NAME.service${NC}"
+ echo -e "Stop: ${RED}systemctl stop $COIN_NAME.service${NC}"
+ echo -e "VPS_IP:PORT ${GREEN}$NODEIP:$COIN_PORT${NC}"
+ echo -e "MASTERNODE GENKEY is: ${RED}$COINKEY${NC}"
+ echo -e "Please check ${RED}$COIN_NAME${NC} is running with the following command: ${RED}systemctl status $COIN_NAME.service${NC}"
+ echo -e "Use ${RED}$COIN_CLI masternode status${NC} to check your MN."
+ if [[ -n $SENTINEL_REPO  ]]; then
+ echo -e "${RED}Sentinel${NC} is installed in ${RED}/root/sentinel_$COIN_NAME${NC}"
+ echo -e "Sentinel logs is: ${RED}$CONFIGFOLDER/sentinel.log${NC}"
+ fi
  echo -e "${BLUE}================================================================================================================================"
  echo -e "${CYAN}Follow twitter to stay updated.  https://twitter.com/Real_Bit_Yoda${NC}"
  echo -e "${BLUE}================================================================================================================================${NC}"
- echo -e "${CYAN}Ensure Node is fully SYNCED with BLOCKCHAIN before starting your Node :).${NC}"
+ echo -e "${GREEN}Donations accepted but never required.${NC}"
  echo -e "${BLUE}================================================================================================================================${NC}"
- echo -e "${GREEN}Usage Commands.${NC}"
- echo -e "${GREEN}poix-cli masternode status${NC}"
- echo -e "${GREEN}poix-cli getinfo.${NC}"
+ echo -e "${YELLOW}BCH: qzgnck23pwfag8ucz2f0vf0j5skshtuql5hmwwjhds"
+ echo -e "${YELLOW}ETH: 0x765eA1753A1eB7b12500499405e811f4d5164554"
+ echo -e "${YELLOW}LTC: LNt9EQputZK8djTSZyR3jE72o7NXNrb4aB${NC}"
  echo -e "${BLUE}================================================================================================================================${NC}"
 }
 
@@ -279,6 +281,7 @@ function setup_node() {
   create_key
   update_config
   enable_firewall
+# install_sentinel
   important_information
   configure_systemd
 }
@@ -292,6 +295,4 @@ checks
 prepare_system
 download_node
 setup_node
-
-
 
